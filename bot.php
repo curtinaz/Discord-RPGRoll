@@ -31,7 +31,9 @@ $discord->on('ready', function (Discord $discord) {
         // Dados de todos os tamanhos
         if (strrpos($message->content, '$roll d') === 0) {
             $tamanho = explode('$roll d', $message->content);
-            $message->reply(rand(1, $tamanho[1]));
+            if((int)$tamanho) {
+                $message->reply(rand(1, (int)$tamanho[1]));
+            }
         }
 
         if ($message->content == '$d20') {
