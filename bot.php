@@ -1,13 +1,17 @@
 <?php
 
-include __DIR__ . '/vendor/autoload.php';
+include './vendor/autoload.php';
 
 use Discord\Discord;
 use Discord\Parts\Channel\Message;
 use Discord\WebSockets\Event;
+use Symfony\Component\Dotenv\Dotenv;
+
+$dotenv = new Dotenv();
+$dotenv->load('./.env');
 
 $discord = new Discord([
-    'token' => 'NzExNTc0NDIyMjQyMzI4NjI2.GkC3gC.2lHhNiYc4pDPpbIVlcrVYuLpo-crGObd_hHbHc',
+    'token' => $_ENV['DISCORD_TOKEN'],
 ]);
 
 $discord->on('ready', function (Discord $discord) {
@@ -24,8 +28,14 @@ $discord->on('ready', function (Discord $discord) {
             return;
         }
 
-        if($message->content == '$d20') {
-            $message->reply(rand(1,20));
+        // Dados de todos os tamanhos
+        if (strrpos($message->content, '$roll d') === 0) {
+            $tamanho = explode('$roll d', $message->content);
+            $message->reply(rand(1, $tamanho[1]));
+        }
+
+        if ($message->content == '$d20') {
+            $message->reply(rand(1, 20));
         }
 
         echo "{$message->author->username}: {$message->content}", PHP_EOL;
