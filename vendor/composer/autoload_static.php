@@ -32,6 +32,7 @@ class ComposerStaticInitb3837f7936e7c5a11cc0c99b8808d312
             'Symfony\\Contracts\\Translation\\' => 30,
             'Symfony\\Component\\Translation\\' => 30,
             'Symfony\\Component\\OptionsResolver\\' => 34,
+            'Symfony\\Component\\Dotenv\\' => 25,
         ),
         'R' => 
         array (
@@ -104,6 +105,10 @@ class ComposerStaticInitb3837f7936e7c5a11cc0c99b8808d312
         array (
             0 => __DIR__ . '/..' . '/symfony/options-resolver',
         ),
+        'Symfony\\Component\\Dotenv\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/symfony/dotenv',
+        ),
         'RingCentral\\Psr7\\' => 
         array (
             0 => __DIR__ . '/..' . '/ringcentral/psr7/src',
@@ -170,8 +175,8 @@ class ComposerStaticInitb3837f7936e7c5a11cc0c99b8808d312
         ),
         'Psr\\Http\\Message\\' => 
         array (
-            0 => __DIR__ . '/..' . '/psr/http-message/src',
-            1 => __DIR__ . '/..' . '/psr/http-factory/src',
+            0 => __DIR__ . '/..' . '/psr/http-factory/src',
+            1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
         'Monolog\\' => 
         array (
