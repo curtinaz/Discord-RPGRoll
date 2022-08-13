@@ -22,6 +22,24 @@ $discord->on('ready', function (Discord $discord) {
 
         echo "{$message->author->username}: {$message->content}", PHP_EOL;
 
+        $afirmations = [
+            "Verdade.",
+            "Com certeza.",
+            "Sem dúvidas.",
+            "Na minha opinião, sim.",
+            "É obvio."
+        ];
+        
+        $negatives = [
+            "Mentira.",
+            "Acho que não.",
+            "Olha, acredito que não.",
+            "Parando para pensar, acho que não.",
+            "Obvio que não."
+        ];
+
+        $select = rand(0, count($afirmations)-1);
+
         if ($message->author->bot) {
             return;
         }
@@ -43,10 +61,11 @@ $discord->on('ready', function (Discord $discord) {
         // Verdade ou mentira?
         if (str_contains($message->content, '$?') !== false) {
             $rand = (rand(1, 2));
+
             if($rand == 1) {
-                $message->reply('Verdade!');
+                $message->reply($afirmations[$select]);
             } else {
-                $message->reply('Mentira!');
+                $message->reply($negatives[$select]);
             }
             return;
         }
