@@ -51,6 +51,8 @@ $discord->on('ready', function (Discord $discord) {
             return;
         }
 
+        // $message->send('Olá');
+
     });
 });
 

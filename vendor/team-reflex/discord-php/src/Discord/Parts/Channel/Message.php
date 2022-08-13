@@ -288,7 +288,7 @@ class Message extends Part
         }
 
         foreach ($this->attributes['mention_channels'] ?? [] as $mention_channel) {
-            if (! $channel = $this->discord->getChannel($mention_channel->id)) {
+            if (!$channel = $this->discord->getChannel($mention_channel->id)) {
                 $channel = $this->factory->create(Channel::class, $mention_channel, true);
             }
 
@@ -422,7 +422,7 @@ class Message extends Part
         $users = new Collection();
 
         foreach ($this->attributes['mentions'] ?? [] as $mention) {
-            if (! $user = $this->discord->users->get('id', $mention->id)) {
+            if (!$user = $this->discord->users->get('id', $mention->id)) {
                 $user = $this->factory->create(User::class, $mention, true);
             }
             $users->pushItem($user);
@@ -572,7 +572,7 @@ class Message extends Part
      */
     protected function getComponentsAttribute(): ?Collection
     {
-        if (! isset($this->attributes['components'])) {
+        if (!isset($this->attributes['components'])) {
             return null;
         }
 
@@ -592,7 +592,7 @@ class Message extends Part
      */
     protected function getStickerItemsAttribute(): ?Collection
     {
-        if (! isset($this->attributes['sticker_items'])) {
+        if (!isset($this->attributes['sticker_items'])) {
             return null;
         }
 
@@ -613,7 +613,7 @@ class Message extends Part
     public function getLinkAttribute(): ?string
     {
         if ($this->id && $this->channel_id) {
-            return 'https://discord.com/channels/'.($this->guild_id ?? '@me').'/'.$this->channel_id.'/'.$this->id;
+            return 'https://discord.com/channels/' . ($this->guild_id ?? '@me') . '/' . $this->channel_id . '/' . $this->id;
         }
 
         return null;
@@ -635,11 +635,11 @@ class Message extends Part
      */
     public function startThread(string $name, int $auto_archive_duration = 1440, ?string $reason = null): ExtendedPromiseInterface
     {
-        if (! in_array($this->channel->type, [Channel::TYPE_TEXT, Channel::TYPE_NEWS])) {
+        if (!in_array($this->channel->type, [Channel::TYPE_TEXT, Channel::TYPE_NEWS])) {
             return reject(new \RuntimeException('You can only start threads on guild text channels or news channels.'));
         }
 
-        if (! in_array($auto_archive_duration, [60, 1440, 4320, 10080])) {
+        if (!in_array($auto_archive_duration, [60, 1440, 4320, 10080])) {
             return reject(new \UnexpectedValueException('`auto_archive_duration` must be one of 60, 1440, 4320, 10080.'));
         }
 
@@ -674,6 +674,25 @@ class Message extends Part
         return $this->channel->sendMessage(MessageBuilder::new()
             ->setContent($message)
             ->setReplyTo($this));
+    }
+
+    /**
+     * Replies to the message.
+     *
+     * @see https://discord.com/developers/docs/resources/channel#create-message
+     *
+     * @param string|MessageBuilder $message The reply message.
+     *
+     * @return ExtendedPromiseInterface<Message>
+     */
+    public function send($message): ExtendedPromiseInterface
+    {
+        if ($message instanceof MessageBuilder) {
+            return $this->channel->sendMessage($message);
+        }
+
+        return $this->channel->sendMessage(MessageBuilder::new()
+            ->setContent($message));
     }
 
     /**
@@ -866,7 +885,7 @@ class Message extends Part
                     $this->discord->removeListener(Event::MESSAGE_REACTION_ADD, $eventHandler);
                     $deferred->resolve($reactions);
 
-                    if (! is_null($timer)) {
+                    if (!is_null($timer)) {
                         $this->discord->getLoop()->cancelTimer($timer);
                     }
                 }
