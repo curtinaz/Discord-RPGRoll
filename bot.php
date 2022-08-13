@@ -34,10 +34,22 @@ $discord->on('ready', function (Discord $discord) {
             if((int)$tamanho) {
                 $message->reply(rand(1, (int)$tamanho));
             }
+            return;
         }
 
         if ($message->content == '$d20') {
             $message->reply(rand(1, 20));
+            return;
+        }
+
+        if ($message->content == '$?') {
+            $rand = (rand(1, 2));
+            if($rand == 1) {
+                $message->reply('Verdade!');
+            } else {
+                $message->reply('Mentira!');
+            }
+            return;
         }
 
         echo "{$message->author->username}: {$message->content}", PHP_EOL;
