@@ -20,11 +20,9 @@ $discord->on('ready', function (Discord $discord) {
     // Listen for messages.
     $discord->on(Event::MESSAGE_CREATE, function (Message $message, Discord $discord) {
 
-        if ($message->author->bot) {
-            return;
-        }
+        echo "{$message->author->username}: {$message->content}", PHP_EOL;
 
-        if (strrpos($message->content, '$') !== 0) {
+        if ($message->author->bot) {
             return;
         }
 
@@ -43,7 +41,7 @@ $discord->on('ready', function (Discord $discord) {
         }
 
         // Verdade ou mentira?
-        if (strpos('$?', $message->content)) {
+        if (str_contains($message->content, '$?') !== false) {
             $rand = (rand(1, 2));
             if($rand == 1) {
                 $message->reply('Verdade!');
@@ -53,7 +51,6 @@ $discord->on('ready', function (Discord $discord) {
             return;
         }
 
-        echo "{$message->author->username}: {$message->content}", PHP_EOL;
     });
 });
 
