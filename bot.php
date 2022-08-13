@@ -42,7 +42,8 @@ $discord->on('ready', function (Discord $discord) {
             return;
         }
 
-        if ($message->content == '$?') {
+        // Verdade ou mentira?
+        if (strpos('$?', $message->content)) {
             $rand = (rand(1, 2));
             if($rand == 1) {
                 $message->reply('Verdade!');
