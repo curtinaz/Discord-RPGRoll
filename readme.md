@@ -10,3 +10,6 @@ https://discord.com/oauth2/authorize?client_id=711574422242328626&scope=bot&perm
 Todos os comandos utilizam o prefixo `$`  
 `$roll d{n}` Roda um dado de qualquer tamanho (troque n pelo tamanho do dado).  
 `$d20` Roda um dado de 20 lados.  
+
+## Extra
+Adicionar `$?` ao final de qualquer frase, trará um retorno positivo ou negativo.
