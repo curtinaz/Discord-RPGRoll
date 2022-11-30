@@ -86,7 +86,7 @@ class Discord
      *
      * @var string Version.
      */
-    public const VERSION = 'v7.1.4';
+    public const VERSION = 'v7.3.3';
 
     /**
      * The logger.
@@ -259,6 +259,13 @@ class Discord
     protected $gateway;
 
     /**
+     * The resume_gateway_url that the WebSocket client will reconnect to.
+     *
+     * @var string resume_gateway_url URL.
+     */
+    protected $resume_gateway_url;
+
+    /**
      * What encoding the client will use, either `json` or `etf`.
      *
      * @var string Encoding.
@@ -412,6 +419,14 @@ class Discord
     {
         $this->logger->debug('ready packet received');
 
+        $content = $data->d;
+ 
+        // Check if we received resume_gateway_url
+        if (isset($content->resume_gateway_url)) {
+            $this->resume_gateway_url = $content->resume_gateway_url;
+            $this->logger->debug('resume_gateway_url received', ['url' => $content->resume_gateway_url]);
+        }
+
         // If this is a reconnect we don't want to
         // reparse the READY packet as it would remove
         // all the data cached.
@@ -423,7 +438,6 @@ class Discord
             return;
         }
 
-        $content = $data->d;
         $this->emit('trace', $data->d->_trace);
         $this->logger->debug('discord trace received', ['trace' => $content->_trace]);
 
@@ -1189,7 +1203,7 @@ class Discord
             }
 
             $data['session'] = $vs->session_id;
-            $this->logger->info('received session id for voice sesion', ['guild' => $channel->guild_id, 'session_id' => $vs->session_id]);
+            $this->logger->info('received session id for voice session', ['guild' => $channel->guild_id, 'session_id' => $vs->session_id]);
             $this->removeListener(Event::VOICE_STATE_UPDATE, $voiceStateUpdate);
         };
 
@@ -1288,7 +1302,10 @@ class Discord
 
         if (is_null($gateway)) {
             $this->http->get(Endpoint::GATEWAY_BOT)->done(function ($response) use ($buildParams) {
-                $buildParams($response->url, $response->session_start_limit);
+                if ($response->shards > 1) {
+                    $this->logger->info('Please contact the DiscordPHP devs at https://discord.gg/dphp or https://github.com/discord-php/DiscordPHP/issues if you are interrested in assisting us with sharding support development.');
+                }
+                $buildParams($this->resume_gateway_url ?? $response->url, $response->session_start_limit);
             }, function ($e) use ($buildParams) {
                 // Can't access the API server so we will use the default gateway.
                 $this->logger->warning('could not retrieve gateway, using default');
@@ -1338,7 +1355,7 @@ class Discord
                 'dnsConfig',
             ])
             ->setDefaults([
-                'loop' => LoopFactory::create(),
+                'loop' => class_exists('\React\EventLoop\Loop') ? \React\EventLoop\Loop::get() : LoopFactory::create(),
                 'logger' => null,
                 'loadAllMembers' => false,
                 'disabledEvents' => [],
@@ -1570,7 +1587,7 @@ class Discord
     }
 
     /**
-     * Add listerner for incoming application command from interaction
+     * Add listerner for incoming application command from interaction.
      *
      * @param string|array  $name
      * @param callable      $callback

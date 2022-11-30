@@ -9,7 +9,6 @@ use React\EventLoop\LoopInterface;
 use React\Http\Message\Response;
 use React\Http\Message\ServerRequest;
 use React\Promise;
-use React\Promise\CancellablePromiseInterface;
 use React\Promise\PromiseInterface;
 use React\Socket\ConnectionInterface;
 use React\Socket\ServerInterface;
@@ -84,7 +83,9 @@ final class StreamingServer extends EventEmitter
 {
     private $callback;
     private $parser;
-    private $loop;
+
+    /** @var Clock */
+    private $clock;
 
     /**
      * Creates an HTTP server that invokes the given callback for each incoming HTTP request
@@ -104,10 +105,9 @@ final class StreamingServer extends EventEmitter
             throw new \InvalidArgumentException('Invalid request handler given');
         }
 
-        $this->loop = $loop;
-
         $this->callback = $requestHandler;
-        $this->parser = new RequestHeaderParser();
+        $this->clock = new Clock($loop);
+        $this->parser = new RequestHeaderParser($this->clock);
 
         $that = $this;
         $this->parser->on('headers', function (ServerRequestInterface $request, ConnectionInterface $conn) use ($that) {
@@ -157,7 +157,7 @@ final class StreamingServer extends EventEmitter
         }
 
         // cancel pending promise once connection closes
-        if ($response instanceof CancellablePromiseInterface) {
+        if ($response instanceof PromiseInterface && \method_exists($response, 'cancel')) {
             $conn->on('close', function () use ($response) {
                 $response->cancel();
             });
@@ -255,7 +255,7 @@ final class StreamingServer extends EventEmitter
         // assign default "Date" header from current time automatically
         if (!$response->hasHeader('Date')) {
             // IMF-fixdate  = day-name "," SP date1 SP time-of-day SP GMT
-            $response = $response->withHeader('Date', gmdate('D, d M Y H:i:s') . ' GMT');
+            $response = $response->withHeader('Date', gmdate('D, d M Y H:i:s', (int) $this->clock->now()) . ' GMT');
         } elseif ($response->getHeaderLine('Date') === ''){
             $response = $response->withoutHeader('Date');
         }
@@ -265,6 +265,8 @@ final class StreamingServer extends EventEmitter
         if (($method === 'CONNECT' && $code >= 200 && $code < 300) || ($code >= 100 && $code < 200) || $code === Response::STATUS_NO_CONTENT) {
             // 2xx response to CONNECT and 1xx and 204 MUST NOT include Content-Length or Transfer-Encoding header
             $response = $response->withoutHeader('Content-Length');
+        } elseif ($method === 'HEAD' && $response->hasHeader('Content-Length')) {
+            // HEAD Request: preserve explicit Content-Length
         } elseif ($code === Response::STATUS_NOT_MODIFIED && ($response->hasHeader('Content-Length') || $body->getSize() === 0)) {
             // 304 Not Modified: preserve explicit Content-Length and preserve missing header if body is empty
         } elseif ($body->getSize() !== null) {

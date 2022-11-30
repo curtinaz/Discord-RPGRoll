@@ -2,8 +2,12 @@
 
 include './vendor/autoload.php';
 
+use Discord\Builders\MessageBuilder;
 use Discord\Discord;
 use Discord\Parts\Channel\Message;
+use Discord\Parts\Guild\Guild;
+use Discord\Parts\Interactions\Command\Command;
+use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
 use Symfony\Component\Dotenv\Dotenv;
 
@@ -20,6 +24,9 @@ $discord->on('ready', function (Discord $discord) {
     // Listen for messages.
     $discord->on(Event::MESSAGE_CREATE, function (Message $message, Discord $discord) {
 
+        $command = new Command($discord, ['name' => 'ping', 'description' => 'pong']);
+        $discord->application->commands->save($command);
+
         echo "{$message->author->username}: {$message->content}", PHP_EOL;
 
         $afirmations = [
@@ -29,7 +36,7 @@ $discord->on('ready', function (Discord $discord) {
             "Na minha opinião, sim.",
             "É obvio."
         ];
-        
+
         $negatives = [
             "Mentira.",
             "Acho que não.",
@@ -38,7 +45,7 @@ $discord->on('ready', function (Discord $discord) {
             "Obvio que não."
         ];
 
-        $select = rand(0, count($afirmations)-1);
+        $select = rand(0, count($afirmations) - 1);
 
         if ($message->author->bot) {
             return;
@@ -47,7 +54,7 @@ $discord->on('ready', function (Discord $discord) {
         // Dados de todos os tamanhos
         if (strrpos($message->content, '$roll d') === 0) {
             $tamanho = explode('$roll d', $message->content)[1];
-            if((int)$tamanho) {
+            if ((int)$tamanho) {
                 $message->reply(rand(1, (int)$tamanho));
             }
             return;
@@ -62,7 +69,7 @@ $discord->on('ready', function (Discord $discord) {
         if (str_contains($message->content, '$?') !== false) {
             $rand = (rand(1, 2));
 
-            if($rand == 1) {
+            if ($rand == 1) {
                 $message->reply($afirmations[$select]);
             } else {
                 $message->reply($negatives[$select]);
@@ -70,9 +77,12 @@ $discord->on('ready', function (Discord $discord) {
             return;
         }
 
-        // $message->send('Olá');
-
     });
+});
+
+// Ping command
+$discord->listenCommand('ping', function (Interaction $interaction) {
+    $interaction->respondWithMessage(MessageBuilder::new()->setContent('Pong!'));
 });
 
 $discord->run();

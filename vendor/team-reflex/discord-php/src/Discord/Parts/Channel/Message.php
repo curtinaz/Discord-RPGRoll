@@ -72,7 +72,7 @@ use function React\Promise\reject;
  * @property Thread|null                 $thread                                 The thread that the message was sent in.
  * @property Collection|Component[]|null $components                             Sent if the message contains components like buttons, action rows, or other interactive components.
  * @property Collection|Sticker[]|null   $sticker_items                          Stickers attached to the message.
- * @property int|null                    $position                               A generally increasing integer (there may be gaps or duplicates) that represents the approximate position of the message in a thread, it can be used to estimate the relative position of the messsage in a thread in company with `total_message_sent` on parent thread.
+ * @property int|null                    $position                               A generally increasing integer (there may be gaps or duplicates) that represents the approximate position of the message in a thread, it can be used to estimate the relative position of the message in a thread in company with `total_message_sent` on parent thread.
  * @property bool                        $crossposted                            Message has been crossposted.
  * @property bool                        $is_crosspost                           Message is a crosspost from another channel.
  * @property bool                        $suppress_embeds                        Do not include embeds when serializing message.
@@ -133,8 +133,15 @@ class Message extends Part
     public const REACT_DELETE_ID = 2;
     public const REACT_DELETE_EMOJI = 3;
 
+    public const FLAG_CROSSPOSTED = (1 << 0);
+    public const FLAG_IS_CROSSPOST = (1 << 1);
     public const FLAG_SUPPRESS_EMBED = (1 << 2);
+    public const FLAG_SOURCE_MESSAGE_DELETED = (1 << 3);
+    public const FLAG_URGENT = (1 << 4);
+    public const FLAG_HAS_THREAD = (1 << 5);
     public const FLAG_EPHEMERAL = (1 << 6);
+    public const FLAG_LOADING = (1 << 7);
+    public const FLAG_FAILED_TO_MENTION_SOME_ROLES_IN_THREAD = (1 << 8);
 
     /**
      * @inheritdoc
@@ -187,7 +194,7 @@ class Message extends Part
      */
     protected function getCrosspostedAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 0));
+        return (bool) ($this->flags & self::FLAG_CROSSPOSTED);
     }
 
     /**
@@ -197,7 +204,7 @@ class Message extends Part
      */
     protected function getIsCrosspostAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 1));
+        return (bool) ($this->flags & self::FLAG_IS_CROSSPOST);
     }
 
     /**
@@ -217,7 +224,7 @@ class Message extends Part
      */
     protected function getSourceMessageDeletedAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 3));
+        return (bool) ($this->flags & self::FLAG_SOURCE_MESSAGE_DELETED);
     }
 
     /**
@@ -227,7 +234,7 @@ class Message extends Part
      */
     protected function getUrgentAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 4));
+        return (bool) ($this->flags & self::FLAG_URGENT);
     }
 
     /**
@@ -237,7 +244,7 @@ class Message extends Part
      */
     protected function getHasThreadAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 5));
+        return (bool) ($this->flags & self::FLAG_HAS_THREAD);
     }
 
     /**
@@ -257,7 +264,7 @@ class Message extends Part
      */
     protected function getLoadingAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 7));
+        return (bool) ($this->flags & self::FLAG_LOADING);
     }
 
     /**
@@ -267,7 +274,7 @@ class Message extends Part
      */
     protected function getFailedToMentionSomeRolesInThreadAttribute(): bool
     {
-        return (bool) ($this->flags & (1 << 8));
+        return (bool) ($this->flags & self::FLAG_FAILED_TO_MENTION_SOME_ROLES_IN_THREAD);
     }
 
     /**
@@ -288,7 +295,7 @@ class Message extends Part
         }
 
         foreach ($this->attributes['mention_channels'] ?? [] as $mention_channel) {
-            if (!$channel = $this->discord->getChannel($mention_channel->id)) {
+            if (! $channel = $this->discord->getChannel($mention_channel->id)) {
                 $channel = $this->factory->create(Channel::class, $mention_channel, true);
             }
 
@@ -422,7 +429,7 @@ class Message extends Part
         $users = new Collection();
 
         foreach ($this->attributes['mentions'] ?? [] as $mention) {
-            if (!$user = $this->discord->users->get('id', $mention->id)) {
+            if (! $user = $this->discord->users->get('id', $mention->id)) {
                 $user = $this->factory->create(User::class, $mention, true);
             }
             $users->pushItem($user);
@@ -572,7 +579,7 @@ class Message extends Part
      */
     protected function getComponentsAttribute(): ?Collection
     {
-        if (!isset($this->attributes['components'])) {
+        if (! isset($this->attributes['components'])) {
             return null;
         }
 
@@ -592,7 +599,7 @@ class Message extends Part
      */
     protected function getStickerItemsAttribute(): ?Collection
     {
-        if (!isset($this->attributes['sticker_items'])) {
+        if (! isset($this->attributes['sticker_items'])) {
             return null;
         }
 
@@ -613,7 +620,7 @@ class Message extends Part
     public function getLinkAttribute(): ?string
     {
         if ($this->id && $this->channel_id) {
-            return 'https://discord.com/channels/' . ($this->guild_id ?? '@me') . '/' . $this->channel_id . '/' . $this->id;
+            return 'https://discord.com/channels/'.($this->guild_id ?? '@me').'/'.$this->channel_id.'/'.$this->id;
         }
 
         return null;
@@ -622,7 +629,7 @@ class Message extends Part
     /**
      * Starts a public thread from the message.
      *
-     * @see https://discord.com/developers/docs/resources/channel#start-thread-with-message
+     * @see https://discord.com/developers/docs/resources/channel#start-thread-from-message
      *
      * @param string      $name                  The name of the thread.
      * @param int         $auto_archive_duration Number of minutes of inactivity until the thread is auto-archived. One of 60, 1440, 4320, 10080.
@@ -635,11 +642,11 @@ class Message extends Part
      */
     public function startThread(string $name, int $auto_archive_duration = 1440, ?string $reason = null): ExtendedPromiseInterface
     {
-        if (!in_array($this->channel->type, [Channel::TYPE_TEXT, Channel::TYPE_NEWS])) {
+        if (! in_array($this->channel->type, [Channel::TYPE_TEXT, Channel::TYPE_NEWS])) {
             return reject(new \RuntimeException('You can only start threads on guild text channels or news channels.'));
         }
 
-        if (!in_array($auto_archive_duration, [60, 1440, 4320, 10080])) {
+        if (! in_array($auto_archive_duration, [60, 1440, 4320, 10080])) {
             return reject(new \UnexpectedValueException('`auto_archive_duration` must be one of 60, 1440, 4320, 10080.'));
         }
 
@@ -674,25 +681,6 @@ class Message extends Part
         return $this->channel->sendMessage(MessageBuilder::new()
             ->setContent($message)
             ->setReplyTo($this));
-    }
-
-    /**
-     * Replies to the message.
-     *
-     * @see https://discord.com/developers/docs/resources/channel#create-message
-     *
-     * @param string|MessageBuilder $message The reply message.
-     *
-     * @return ExtendedPromiseInterface<Message>
-     */
-    public function send($message): ExtendedPromiseInterface
-    {
-        if ($message instanceof MessageBuilder) {
-            return $this->channel->sendMessage($message);
-        }
-
-        return $this->channel->sendMessage(MessageBuilder::new()
-            ->setContent($message));
     }
 
     /**
@@ -746,7 +734,7 @@ class Message extends Part
         $deferred = new Deferred();
 
         $timer = $this->discord->getLoop()->addTimer($delay / 1000, function () use ($deferred) {
-            $this->delete([$deferred, 'resolve'], [$deferred, 'reject']);
+            $this->delete()->done([$deferred, 'resolve'], [$deferred, 'reject']);
         });
 
         return $deferred->promise();
@@ -885,7 +873,7 @@ class Message extends Part
                     $this->discord->removeListener(Event::MESSAGE_REACTION_ADD, $eventHandler);
                     $deferred->resolve($reactions);
 
-                    if (!is_null($timer)) {
+                    if (! is_null($timer)) {
                         $this->discord->getLoop()->cancelTimer($timer);
                     }
                 }

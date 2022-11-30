@@ -1,6 +1,7 @@
 # HTTP
 
-[![CI status](https://github.com/reactphp/http/workflows/CI/badge.svg)](https://github.com/reactphp/http/actions)
+[![CI status](https://github.com/reactphp/http/actions/workflows/ci.yml/badge.svg)](https://github.com/reactphp/http/actions)
+[![installs on Packagist](https://img.shields.io/packagist/dt/react/http?color=blue&label=installs%20on%20Packagist)](https://packagist.org/packages/react/http)
 
 Event-driven, streaming HTTP client and server implementation for [ReactPHP](https://reactphp.org/).
 
@@ -68,6 +69,8 @@ multiple concurrent HTTP requests without blocking.
         * [withBase()](#withbase)
         * [withProtocolVersion()](#withprotocolversion)
         * [withResponseBuffer()](#withresponsebuffer)
+        * [withHeader()](#withheader)
+        * [withoutHeader()](#withoutheader)
     * [React\Http\Message](#reacthttpmessage)
         * [Response](#response)
             * [html()](#html)
@@ -372,38 +375,42 @@ See also [`withFollowRedirects()`](#withfollowredirects) for more details.
 
 As stated above, this library provides you a powerful, async API by default.
 
-If, however, you want to integrate this into your traditional, blocking environment,
-you should look into also using [clue/reactphp-block](https://github.com/clue/reactphp-block).
-
-The resulting blocking code could look something like this:
+You can also integrate this into your traditional, blocking environment by using
+[reactphp/async](https://github.com/reactphp/async). This allows you to simply
+await async HTTP requests like this:
 
 ```php
-use Clue\React\Block;
+use function React\Async\await;
 
 $browser = new React\Http\Browser();
 
 $promise = $browser->get('http://example.com/');
 
 try {
-    $response = Block\await($promise, Loop::get());
+    $response = await($promise);
     // response successfully received
 } catch (Exception $e) {
-    // an error occured while performing the request
+    // an error occurred while performing the request
 }
 ```
 
 Similarly, you can also process multiple requests concurrently and await an array of `Response` objects:
 
 ```php
+use function React\Async\await;
+use function React\Promise\all;
+
 $promises = array(
     $browser->get('http://example.com/'),
     $browser->get('http://www.example.org/'),
 );
 
-$responses = Block\awaitAll($promises, Loop::get());
+$responses = await(all($promises));
 ```
 
-Please refer to [clue/reactphp-block](https://github.com/clue/reactphp-block#readme) for more details.
+This is made possible thanks to fibers available in PHP 8.1+ and our
+compatibility API that also works on all supported PHP versions.
+Please refer to [reactphp/async](https://github.com/reactphp/async#readme) for more details.
 
 Keep in mind the above remark about buffering the whole response message in memory.
 As an alternative, you may also see one of the following chapters for the
@@ -1299,7 +1306,7 @@ get all cookies sent with the current request.
 
 ```php 
 $http = new React\Http\HttpServer(function (Psr\Http\Message\ServerRequestInterface $request) {
-    $key = 'react\php';
+    $key = 'greeting';
 
     if (isset($request->getCookieParams()[$key])) {
         $body = "Your cookie value is: " . $request->getCookieParams()[$key] . "\n";
@@ -1311,7 +1318,7 @@ $http = new React\Http\HttpServer(function (Psr\Http\Message\ServerRequestInterf
 
     return React\Http\Message\Response::plaintext(
         "Your cookie has been set.\n"
-    )->withHeader('Set-Cookie', urlencode($key) . '=' . urlencode('test;more'));
+    )->withHeader('Set-Cookie', $key . '=' . urlencode('Hello world!'));
 });
 ```
 
@@ -1425,13 +1432,21 @@ may only support strings.
 $http = new React\Http\HttpServer(function (Psr\Http\Message\ServerRequestInterface $request) {
     $stream = new ThroughStream();
 
+    // send some data every once in a while with periodic timer
     $timer = Loop::addPeriodicTimer(0.5, function () use ($stream) {
         $stream->write(microtime(true) . PHP_EOL);
     });
 
-    Loop::addTimer(5, function() use ($timer, $stream) {
+    // end stream after a few seconds
+    $timeout = Loop::addTimer(5.0, function() use ($stream, $timer) {
         Loop::cancelTimer($timer);
         $stream->end();
+    });
+
+    // stop timer if stream is closed (such as when connection is closed)
+    $stream->on('close', function () use ($timer, $timeout) {
+        Loop::cancelTimer($timer);
+        Loop::cancelTimer($timeout);
     });
 
     return new React\Http\Message\Response(
@@ -2372,6 +2387,36 @@ Notice that the [`Browser`](#browser) is an immutable object, i.e. this
 method actually returns a *new* [`Browser`](#browser) instance with the
 given setting applied.
 
+#### withHeader()
+
+The `withHeader(string $header, string $value): Browser` method can be used to
+add a request header for all following requests.
+
+```php
+$browser = $browser->withHeader('User-Agent', 'ACME');
+
+$browser->get($url)->then(…);
+```
+
+Note that the new header will overwrite any headers previously set with
+the same name (case-insensitive). Following requests will use these headers
+by default unless they are explicitly set for any requests.
+
+#### withoutHeader()
+
+The `withoutHeader(string $header): Browser` method can be used to
+remove any default request headers previously set via
+the [`withHeader()` method](#withheader).
+
+```php
+$browser = $browser->withoutHeader('User-Agent');
+
+$browser->get($url)->then(…);
+```
+
+Note that this method only affects the headers which were set with the
+method `withHeader(string $header, string $value): Browser`
+
 ### React\Http\Message
 
 #### Response
@@ -2911,7 +2956,7 @@ This project follows [SemVer](https://semver.org/).
 This will install the latest supported version:
 
 ```bash
-$ composer require react/http:^1.6
+composer require react/http:^1.8
 ```
 
 See also the [CHANGELOG](CHANGELOG.md) for details about version upgrades.
@@ -2927,13 +2972,13 @@ To run the test suite, you first need to clone this repo and then install all
 dependencies [through Composer](https://getcomposer.org/):
 
 ```bash
-$ composer install
+composer install
 ```
 
 To run the test suite, go to the project root and run:
 
 ```bash
-$ vendor/bin/phpunit
+vendor/bin/phpunit
 ```
 
 The test suite also contains a number of functional integration tests that rely
@@ -2941,7 +2986,7 @@ on a stable internet connection.
 If you do not want to run these, they can simply be skipped like this:
 
 ```bash
-$ vendor/bin/phpunit --exclude-group internet
+vendor/bin/phpunit --exclude-group internet
 ```
 
 ## License

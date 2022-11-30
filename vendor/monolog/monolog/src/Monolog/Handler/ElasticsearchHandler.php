@@ -14,12 +14,13 @@ namespace Monolog\Handler;
 use Elastic\Elasticsearch\Response\Elasticsearch;
 use Throwable;
 use RuntimeException;
-use Monolog\Logger;
+use Monolog\Level;
 use Monolog\Formatter\FormatterInterface;
 use Monolog\Formatter\ElasticsearchFormatter;
 use InvalidArgumentException;
 use Elasticsearch\Common\Exceptions\RuntimeException as ElasticsearchRuntimeException;
 use Elasticsearch\Client;
+use Monolog\LogRecord;
 use Elastic\Elasticsearch\Exception\InvalidArgumentException as ElasticInvalidArgumentException;
 use Elastic\Elasticsearch\Client as Client8;
 
@@ -43,18 +44,26 @@ use Elastic\Elasticsearch\Client as Client8;
  *    $log->pushHandler($handler);
  *
  * @author Avtandil Kikabidze <akalongman@gmail.com>
+ * @phpstan-type Options array{
+ *     index: string,
+ *     type: string,
+ *     ignore_error: bool
+ * }
+ * @phpstan-type InputOptions array{
+ *     index?: string,
+ *     type?: string,
+ *     ignore_error?: bool
+ * }
  */
 class ElasticsearchHandler extends AbstractProcessingHandler
 {
-    /**
-     * @var Client|Client8
-     */
-    protected $client;
+    protected Client|Client8 $client;
 
     /**
      * @var mixed[] Handler config options
+     * @phpstan-var Options
      */
-    protected $options = [];
+    protected array $options;
 
     /**
      * @var bool
@@ -64,13 +73,11 @@ class ElasticsearchHandler extends AbstractProcessingHandler
     /**
      * @param Client|Client8 $client  Elasticsearch Client object
      * @param mixed[]        $options Handler configuration
+     *
+     * @phpstan-param InputOptions $options
      */
-    public function __construct($client, array $options = [], $level = Logger::DEBUG, bool $bubble = true)
+    public function __construct(Client|Client8 $client, array $options = [], int|string|Level $level = Level::Debug, bool $bubble = true)
     {
-        if (!$client instanceof Client && !$client instanceof Client8) {
-            throw new \TypeError('Elasticsearch\Client or Elastic\Elasticsearch\Client instance required');
-        }
-
         parent::__construct($level, $bubble);
         $this->client = $client;
         $this->options = array_merge(
@@ -92,15 +99,15 @@ class ElasticsearchHandler extends AbstractProcessingHandler
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
-    protected function write(array $record): void
+    protected function write(LogRecord $record): void
     {
-        $this->bulkSend([$record['formatted']]);
+        $this->bulkSend([$record->formatted]);
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function setFormatter(FormatterInterface $formatter): HandlerInterface
     {
@@ -115,6 +122,8 @@ class ElasticsearchHandler extends AbstractProcessingHandler
      * Getter options
      *
      * @return mixed[]
+     *
+     * @phpstan-return Options
      */
     public function getOptions(): array
     {
@@ -122,7 +131,7 @@ class ElasticsearchHandler extends AbstractProcessingHandler
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     protected function getDefaultFormatter(): FormatterInterface
     {
@@ -130,7 +139,7 @@ class ElasticsearchHandler extends AbstractProcessingHandler
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function handleBatch(array $records): void
     {
@@ -141,7 +150,7 @@ class ElasticsearchHandler extends AbstractProcessingHandler
     /**
      * Use Elasticsearch bulk API to send list of documents
      *
-     * @param  array[]           $records Records + _index/_type keys
+     * @param  array<array<mixed>> $records Records + _index/_type keys
      * @throws \RuntimeException
      */
     protected function bulkSend(array $records): void
