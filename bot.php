@@ -5,7 +5,6 @@ include './vendor/autoload.php';
 use Discord\Builders\MessageBuilder;
 use Discord\Discord;
 use Discord\Parts\Channel\Message;
-use Discord\Parts\Guild\Guild;
 use Discord\Parts\Interactions\Command\Command;
 use Discord\Parts\Interactions\Interaction;
 use Discord\WebSockets\Event;
@@ -21,11 +20,11 @@ $discord = new Discord([
 $discord->on('ready', function (Discord $discord) {
     echo "Bot is ready!", PHP_EOL;
 
+    $command = new Command($discord, ['name' => 'ping', 'description' => 'pong']);
+    $discord->application->commands->save($command);
+
     // Listen for messages.
     $discord->on(Event::MESSAGE_CREATE, function (Message $message, Discord $discord) {
-
-        $command = new Command($discord, ['name' => 'ping', 'description' => 'pong']);
-        $discord->application->commands->save($command);
 
         echo "{$message->author->username}: {$message->content}", PHP_EOL;
 
@@ -76,7 +75,6 @@ $discord->on('ready', function (Discord $discord) {
             }
             return;
         }
-
     });
 });
 
